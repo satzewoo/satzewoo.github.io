@@ -3,7 +3,8 @@ let btn = document.getElementById("payButton")
 let language = "ru-RU"
 
 function pay() {
-  console.log(document.location.search)
+  console.log(window.location.search.slice(1).split('=')[1])
+  const amount = window.location.search.slice(1).split('=')[1]
   var widget = new cp.CloudPayments({
     language: language
   })
@@ -11,7 +12,7 @@ function pay() {
     { //options
       publicId: 'test_api_00000000000000000000002', //id из личного кабинета
       description: 'Оплата товаров в example.com', //назначение
-      amount: 1000, //сумма
+      amount: amount, //сумма
       currency: 'RUB', //валюта
       accountId: 'user@example.com', //идентификатор плательщика (необязательно)
       invoiceId: '1234567', //номер заказа  (необязательно)
