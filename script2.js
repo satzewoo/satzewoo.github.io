@@ -13,7 +13,7 @@ function pay() {
       publicId: 'test_api_00000000000000000000002', //id из личного кабинета
       description: 'Оплата товаров в example.com', //назначение
       amount: amount, //сумма
-      currency: 'RUB', //валюта
+      currency: 'KZT', //валюта
       accountId: 'user@example.com', //идентификатор плательщика (необязательно)
       invoiceId: '1234567', //номер заказа  (необязательно)
       skin: "mini", //дизайн виджета (необязательно)
