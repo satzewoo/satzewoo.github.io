@@ -3,6 +3,7 @@ let btn = document.getElementById("payButton")
 let language = "ru-RU"
 
 function pay() {
+  console.log(document.location.search)
   var widget = new cp.CloudPayments({
     language: language
   })
