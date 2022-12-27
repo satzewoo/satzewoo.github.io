@@ -1,0 +1,30 @@
+.btn {
+    color: white;
+    background: #5e97f9;
+    border: none;
+    padding: 15px 30px;
+    font-size: 36px;
+    font-weight: bold;
+    border-radius: 10px;
+  }
+  
+  .btn:hover {
+    background: #3c6bbd;
+    transition: all 0.5s ease-out;
+  }
+  
+  /* body {
+    position: relative;
+    line-height: 700px;
+  } */
+  input {
+    margin-top: 100px;
+    margin-left: 4rem;
+    margin-right: 4rem;
+    max-width: 100%;
+  }
+  .main {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
