@@ -43,8 +43,24 @@
 	const topCategories = $derived(byCategory.slice(0, 4));
 	const maxCatTotal = $derived(topCategories[0]?.total ?? 1);
 
+	let selectedCategory = $state(/** @type {string | null} */ (null));
+
+	/** @param {string} slug */
+	function toggleCategoryFilter(slug) {
+		selectedCategory = selectedCategory === slug ? null : slug;
+	}
+
 	const recentExpenses = $derived(
-		txStore.items.filter((t) => t.kind === 'expense').slice(0, 12)
+		txStore.items
+			.filter((t) => t.kind === 'expense')
+			.filter((t) => !selectedCategory || (t.category ?? 'other_expense') === selectedCategory)
+			.slice(0, 12)
+	);
+
+	const selectedCategoryMeta = $derived(
+		selectedCategory
+			? CATEGORIES[/** @type {keyof typeof CATEGORIES} */ (selectedCategory)]
+			: null
 	);
 
 	const groupedRecent = $derived.by(() => {
@@ -130,17 +146,36 @@
 		{:else}
 			{#each topCategories as cat, i (cat.slug)}
 				{@const meta = CATEGORIES[/** @type {keyof typeof CATEGORIES} */ (cat.slug)]}
-				{@const pct = Math.max(14, Math.round((cat.total / maxCatTotal) * 100))}
-				<div class="bar-wrap" in:fly={{ y: 16, duration: 360, delay: i * 60, easing: quintOut }}>
-					<div class="bar-track">
-						<div
-							class="bar-fill"
-							style="height: {pct}%; background: {BAR_COLORS[i % BAR_COLORS.length]}"
-						></div>
-					</div>
-					<div class="bar-emoji">{meta?.icon ?? '•'}</div>
-					<div class="bar-amt tabular">{fmtUsdCompact(cat.total)}$</div>
-				</div>
+				{@const rawPct = Math.round((cat.total / maxCatTotal) * 100)}
+				{@const compact = rawPct < 20}
+				{@const pct = compact ? 0 : Math.max(20, rawPct)}
+				{@const active = selectedCategory === cat.slug}
+				<button
+					class="bar-wrap"
+					class:compact
+					class:active
+					class:dimmed={selectedCategory && !active}
+					type="button"
+					onclick={() => toggleCategoryFilter(cat.slug)}
+					aria-label={meta?.ru ?? cat.slug}
+					in:fly={{ y: 16, duration: 360, delay: i * 60, easing: quintOut }}
+				>
+					{#if compact}
+						<div class="bar-pill" style="background: {BAR_COLORS[i % BAR_COLORS.length]}33">
+							<span class="bar-emoji">{meta?.icon ?? '•'}</span>
+							<span class="bar-amt tabular">{fmtUsdCompact(cat.total)}$</span>
+						</div>
+					{:else}
+						<div class="bar-track">
+							<div
+								class="bar-fill"
+								style="height: {pct}%; background: {BAR_COLORS[i % BAR_COLORS.length]}"
+							></div>
+						</div>
+						<div class="bar-emoji">{meta?.icon ?? '•'}</div>
+						<div class="bar-amt tabular">{fmtUsdCompact(cat.total)}$</div>
+					{/if}
+				</button>
 			{/each}
 		{/if}
 	</section>
@@ -157,19 +192,35 @@
 		</div>
 	{:else}
 		<section class="recent">
-			{#each groupedRecent as group}
-				<div class="group-head">
-					<span class="muted">{group.label}</span>
-					<span class="muted tabular">{fmtUsd(group.sum)}$</span>
-				</div>
-				<div class="group-list">
-					{#each group.items as tx (tx.id)}
-						<div in:fly={{ y: 10, duration: 260, easing: quintOut }}>
-							<TransactionCard {tx} />
-						</div>
-					{/each}
-				</div>
-			{/each}
+			{#if selectedCategory && selectedCategoryMeta}
+				<button
+					class="filter-chip"
+					type="button"
+					onclick={() => (selectedCategory = null)}
+					in:fly={{ y: -6, duration: 200, easing: quintOut }}
+				>
+					<span class="fc-emoji">{selectedCategoryMeta.icon}</span>
+					<span>{selectedCategoryMeta.ru}</span>
+					<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
+				</button>
+			{/if}
+			{#if recentExpenses.length === 0}
+				<div class="filter-empty subtle">Нет транзакций в этой категории</div>
+			{:else}
+				{#each groupedRecent as group}
+					<div class="group-head">
+						<span class="muted">{group.label}</span>
+						<span class="muted tabular">{fmtUsd(group.sum)}$</span>
+					</div>
+					<div class="group-list">
+						{#each group.items as tx (tx.id)}
+							<div in:fly={{ y: 10, duration: 260, easing: quintOut }}>
+								<TransactionCard {tx} />
+							</div>
+						{/each}
+					</div>
+				{/each}
+			{/if}
 		</section>
 	{/if}
 
@@ -303,8 +354,19 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
+		justify-content: flex-end;
 		height: 100%;
 		min-width: 0;
+		padding: 0;
+		background: transparent;
+		transition: opacity 200ms, transform 200ms var(--ease-spring);
+	}
+	.bar-wrap.active { transform: scale(1.03); }
+	.bar-wrap.dimmed { opacity: 0.4; }
+	.bar-wrap:active { transform: scale(0.97); }
+	.bar-wrap.compact {
+		justify-content: flex-end;
+		padding-bottom: 2px;
 	}
 	.bar-track {
 		flex: 1;
@@ -315,6 +377,9 @@
 		display: flex;
 		align-items: flex-end;
 		overflow: hidden;
+	}
+	.bar-wrap.active .bar-track {
+		box-shadow: 0 0 0 2px var(--fg);
 	}
 	.bar-fill {
 		width: 100%;
@@ -330,6 +395,38 @@
 		font-size: 13px;
 		font-weight: 700;
 		margin-top: 2px;
+	}
+
+	.bar-pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		padding: 8px 12px;
+		border-radius: var(--radius-pill);
+		font-size: 13px;
+		font-weight: 700;
+		color: var(--fg);
+	}
+	.bar-pill .bar-emoji { font-size: 16px; margin: 0; }
+	.bar-pill .bar-amt { margin: 0; font-size: 13px; }
+
+	.filter-chip {
+		align-self: flex-start;
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		padding: 6px 12px;
+		background: var(--bg-softer);
+		border-radius: var(--radius-pill);
+		font-size: 13px;
+		font-weight: 600;
+		color: var(--fg);
+		margin: 0 4px 8px;
+	}
+	.fc-emoji { font-size: 15px; }
+	.filter-empty {
+		padding: 24px 12px;
+		text-align: center;
 	}
 
 	.promo {
