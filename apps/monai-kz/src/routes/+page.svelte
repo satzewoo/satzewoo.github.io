@@ -193,7 +193,7 @@
 		);
 		pointer-events: none;
 	}
-	.fab > * {
+	.fab > :global(*) {
 		pointer-events: auto;
 	}
 	.text-btn {
