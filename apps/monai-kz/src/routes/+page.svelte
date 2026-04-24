@@ -75,7 +75,7 @@
 		return Object.values(groups);
 	});
 
-	const isEmpty = $derived(monthExpenses.length === 0);
+	const isEmpty = $derived(monthExpenses.length === 0 && !txStore.pending);
 
 	const pendingTx = $derived(txStore.pending);
 
@@ -87,9 +87,6 @@
 	}
 	function openReview() {
 		goto(`${base}/confirm`);
-	}
-	function dismissPending() {
-		clearPending();
 	}
 </script>
 
@@ -178,20 +175,29 @@
 
 	{#if pendingTx}
 		{@const pcat = pendingTx.category ? CATEGORIES[pendingTx.category] : null}
-		<div class="pending" in:fly={{ y: 60, duration: 320, easing: quintOut }} out:fly={{ y: 60, duration: 200 }}>
-			<button class="pending-body" type="button" onclick={openReview}>
-				<div class="pending-icon">{pcat?.icon ?? '•'}</div>
-				<div class="pending-text">
-					<div class="pending-title">Save instantly?</div>
-					<div class="pending-sub muted">{pendingTx.merchant ?? pendingTx.counterparty ?? pcat?.ru ?? 'Транзакция'} · ${fmtUsd(pendingTx.amountKztMinor)}</div>
+		<div class="pending-stack" in:fly={{ y: 80, duration: 360, easing: quintOut }} out:fly={{ y: 80, duration: 200 }}>
+			<button class="pending-row" type="button" onclick={openReview}>
+				<div class="pending-icon" style="background: rgba(238, 106, 94, 0.18); color: #fff">
+					<span>{pcat?.icon ?? '•'}</span>
 				</div>
+				<div class="pending-body">
+					<div class="pending-cat muted">{pcat?.ru ?? 'Категория'}</div>
+					<div class="pending-title">{pendingTx.merchant ?? pendingTx.counterparty ?? pendingTx.rawInput ?? 'Трата'}</div>
+				</div>
+				<div class="pending-amount tabular">₸{fmtUsd(pendingTx.amountKztMinor)}</div>
 			</button>
-			<button class="pbtn ok" type="button" onclick={quickSave} aria-label="Сохранить">
-				<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-			</button>
-			<button class="pbtn no" type="button" onclick={dismissPending} aria-label="Отмена">
-				<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
-			</button>
+			<div class="pending-banner">
+				<div class="banner-text">
+					<div class="banner-title">Save instantly?</div>
+					<div class="banner-sub muted">Or review before saving</div>
+				</div>
+				<button class="pbtn ok" type="button" onclick={quickSave} aria-label="Сохранить">
+					<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+				</button>
+				<button class="pbtn no" type="button" onclick={openReview} aria-label="Редактировать">
+					<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
+				</button>
+			</div>
 		</div>
 	{/if}
 
@@ -362,59 +368,89 @@
 		flex-direction: column;
 	}
 
-	.pending {
+	.pending-stack {
 		position: fixed;
-		left: 20px;
-		right: 20px;
-		bottom: calc(104px + env(safe-area-inset-bottom));
+		left: 16px;
+		right: 16px;
+		bottom: calc(110px + env(safe-area-inset-bottom));
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		max-width: 408px;
+		margin: 0 auto;
+		z-index: 10;
+	}
+	.pending-row {
 		display: flex;
 		align-items: center;
-		gap: 10px;
+		gap: 12px;
 		padding: 12px 14px;
 		background: var(--bg-soft);
 		border: 1px solid var(--border);
 		border-radius: var(--radius-md);
-		max-width: 400px;
-		margin: 0 auto;
-		z-index: 10;
+		text-align: left;
 		box-shadow: var(--shadow-md);
 	}
-	.pending-body {
-		flex: 1;
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		text-align: left;
-		min-width: 0;
-	}
 	.pending-icon {
-		width: 40px;
-		height: 40px;
-		border-radius: 12px;
-		background: var(--bg-softer);
+		width: 44px;
+		height: 44px;
+		border-radius: 50%;
 		display: grid;
 		place-items: center;
-		font-size: 20px;
+		font-size: 22px;
 		flex-shrink: 0;
 	}
-	.pending-text { flex: 1; min-width: 0; }
-	.pending-title { font-weight: 700; font-size: 14px; }
-	.pending-sub {
+	.pending-body { flex: 1; min-width: 0; }
+	.pending-cat {
 		font-size: 12px;
+		font-weight: 500;
+	}
+	.pending-title {
+		font-weight: 700;
+		font-size: 15px;
 		margin-top: 1px;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
+	.pending-amount {
+		background: var(--bg-softer);
+		padding: 6px 12px;
+		border-radius: var(--radius-pill);
+		font-weight: 700;
+		font-size: 13px;
+		flex-shrink: 0;
+	}
+	.pending-banner {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding: 14px 16px;
+		background: var(--bg-soft);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-md);
+		box-shadow: var(--shadow-md);
+	}
+	.banner-text { flex: 1; min-width: 0; }
+	.banner-title {
+		font-weight: 700;
+		font-size: 15px;
+	}
+	.banner-sub {
+		font-size: 12px;
+		margin-top: 2px;
+	}
 	.pbtn {
-		width: 34px;
-		height: 34px;
+		width: 40px;
+		height: 40px;
 		border-radius: 50%;
 		display: grid;
 		place-items: center;
 		color: white;
 		flex-shrink: 0;
+		transition: transform 140ms var(--ease-spring);
 	}
+	.pbtn:active { transform: scale(0.9); }
 	.pbtn.ok { background: var(--success); }
 	.pbtn.no { background: var(--accent-pressed); }
 
