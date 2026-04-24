@@ -1,0 +1,133 @@
+/* MonAi KZ — design tokens (from spec §8) */
+:root {
+	--bg: #f3efe8;
+	--bg-elev: #fbf8f3;
+	--fg: #1e1e1e;
+	--fg-muted: #6c6760;
+	--fg-subtle: #a8a29b;
+	--accent: #e87a3a;
+	--accent-soft: #f4b088;
+	--accent-pressed: #c7651e;
+	--success: #4a8c5f;
+	--danger: #c4523a;
+
+	--radius-sm: 10px;
+	--radius-md: 18px;
+	--radius-lg: 28px;
+
+	--shadow-neu-sm:
+		4px 4px 10px rgba(180, 165, 140, 0.35),
+		-4px -4px 10px rgba(255, 255, 255, 0.75);
+	--shadow-neu-md:
+		10px 10px 24px rgba(180, 165, 140, 0.4),
+		-10px -10px 24px rgba(255, 255, 255, 0.85);
+	--shadow-neu-inset:
+		inset 4px 4px 8px rgba(180, 165, 140, 0.35),
+		inset -4px -4px 8px rgba(255, 255, 255, 0.75);
+
+	--font:
+		-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter',
+		system-ui, 'Segoe UI', Roboto, sans-serif;
+	--font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--bg: #1c1a17;
+		--bg-elev: #26231f;
+		--fg: #f1ede5;
+		--fg-muted: #9e9890;
+		--fg-subtle: #6a655e;
+		--accent: #f39a5c;
+		--accent-soft: #b8754a;
+		--accent-pressed: #d67a38;
+		--shadow-neu-sm:
+			4px 4px 10px rgba(0, 0, 0, 0.5),
+			-4px -4px 10px rgba(70, 62, 52, 0.3);
+		--shadow-neu-md:
+			10px 10px 24px rgba(0, 0, 0, 0.55),
+			-10px -10px 24px rgba(70, 62, 52, 0.35);
+		--shadow-neu-inset:
+			inset 4px 4px 8px rgba(0, 0, 0, 0.5),
+			inset -4px -4px 8px rgba(70, 62, 52, 0.3);
+	}
+}
+
+* {
+	box-sizing: border-box;
+	-webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+	margin: 0;
+	padding: 0;
+	min-height: 100vh;
+	background: var(--bg);
+	color: var(--fg);
+	font-family: var(--font);
+	font-size: 16px;
+	line-height: 1.4;
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+	overscroll-behavior-y: contain;
+}
+
+button {
+	font-family: inherit;
+	cursor: pointer;
+	border: none;
+	background: none;
+	color: inherit;
+	padding: 0;
+}
+
+input,
+textarea {
+	font-family: inherit;
+	color: inherit;
+}
+
+/* Phone frame — mobile-first, centered on desktop */
+.frame {
+	max-width: 440px;
+	min-height: 100vh;
+	margin: 0 auto;
+	padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+		env(safe-area-inset-left);
+	position: relative;
+	overflow: hidden;
+}
+
+.card {
+	background: var(--bg-elev);
+	border-radius: var(--radius-md);
+	box-shadow: var(--shadow-neu-sm);
+}
+
+.h1 {
+	font-size: 28px;
+	font-weight: 700;
+	letter-spacing: -0.02em;
+	margin: 0;
+}
+
+.h2 {
+	font-size: 20px;
+	font-weight: 600;
+	letter-spacing: -0.01em;
+	margin: 0;
+}
+
+.muted {
+	color: var(--fg-muted);
+}
+
+.subtle {
+	color: var(--fg-subtle);
+	font-size: 13px;
+}
+
+.tabular {
+	font-variant-numeric: tabular-nums;
+}
