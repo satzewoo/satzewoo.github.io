@@ -46,8 +46,7 @@ npm run dev
 ## Деплой на GitHub Pages
 
 ```bash
-BASE_PATH=/monai-kz npm run build
+npm run build
 ```
 
-Сгенерированный `build/` можно копировать в корень Pages-сайта под `/monai-kz/`.
-Для автодеплоя подойдёт GitHub Actions workflow (не включён в прототип).
+Сгенерированный `build/` копируется в корень Pages-сайта. Автодеплой настроен в `.github/workflows/deploy-pages.yml` — при push в `main` с изменениями в `apps/monai-kz/**` приложение публикуется на корень GitHub Pages.

@@ -7,9 +7,6 @@ on:
       - claude/setup-connection-FDj3A
     paths:
       - 'apps/monai-kz/**'
-      - 'index.html'
-      - 'styles.css'
-      - 'script2.js'
       - '.github/workflows/deploy-pages.yml'
   workflow_dispatch: {}
 
@@ -41,22 +38,16 @@ jobs:
       - name: Build MonAi KZ
         working-directory: apps/monai-kz
         env:
-          BASE_PATH: /monai-kz
+          BASE_PATH: ''
         run: npm run build
 
       - name: Assemble site
         run: |
           mkdir -p dist
-          # preserve existing root site (CloudPayments demo)
-          for f in index.html styles.css script2.js; do
-            if [ -f "$f" ]; then cp "$f" dist/; fi
-          done
-          # place built app under /monai-kz/
-          mkdir -p dist/monai-kz
-          cp -r apps/monai-kz/build/. dist/monai-kz/
-          # SPA fallback — if user lands on /monai-kz/record directly, serve the app
-          if [ -f dist/monai-kz/index.html ] && [ ! -f dist/monai-kz/404.html ]; then
-            cp dist/monai-kz/index.html dist/monai-kz/404.html
+          cp -r apps/monai-kz/build/. dist/
+          # SPA fallback — if user lands on a deep route directly, serve the app
+          if [ -f dist/index.html ] && [ ! -f dist/404.html ]; then
+            cp dist/index.html dist/404.html
           fi
 
       - name: Setup Pages
