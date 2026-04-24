@@ -357,3 +357,162 @@ salary, freelance, cashback, refund, other_income     // income kinds
 - **Итого COGS: ~$0.006/user/month** при medium-use. На годовую подписку в 11 900 ₸ — gross margin ~99%.
 
 ---
+
+## 6. Монетизация
+
+### 6.1 Модель — Freemium + подписка
+
+**Free (навсегда)**:
+- До **100 AI-парсингов/месяц** (голос + текст). *Ревизия v0.2: было 30 — слишком жёстко, привычка не формируется.*
+- Ручной ввод без лимита.
+- 1 кошелёк, 1 бюджет.
+- Базовые категории, экспорт CSV.
+- Синхронизация через iCloud/Google Drive (бесплатна для нас).
+
+**Pro — 1 490 ₸/мес или 11 900 ₸/год** (~$3.3 / $26):
+- Безлимит AI-парсингов.
+- Безлимит кошельков и бюджетов.
+- SMS/Push paste + batch import (iOS) / auto-capture через NotificationListener (Android).
+- Той-планировщик, Рассрочки-трекер, Sadaqa годовой отчёт.
+- **Fully on-device mode** (iOS 26+: Apple Foundation Models + SpeechAnalyzer).
+- Виджеты, Apple Watch, Siri Shortcuts.
+- Экспорт PDF / Excel, кастомные категории.
+- Приоритетная поддержка.
+
+**Lifetime — 39 900 ₸** (~$87), **limited: первым 500 юзерам**. *Ревизия v0.2: убран open-ended lifetime из-за каннибализации подписки (break-even ~27 мес при среднем retention 18 мес). Limited-500 — early-adopter якорь + виральный маркер в App Store.*
+
+### 6.2 Почему не реклама и не локальный эквайринг
+- Таргетированная реклама ломает privacy-позиционирование (ключевой USP).
+- Локальный эквайринг (Kaspi Pay, CloudPayments) требует ИП/ТОО и налоговой отчётности в РК — сложный старт. App Store/Play Store Billing решают это из коробки (Tenge billing доступен).
+
+### 6.3 Ценовое тестирование
+- Стартуем с 1 490 ₸/мес. A/B на онбординге: 990 / 1 490 / 1 990.
+- Триал: **7 дней Pro без карты**; Soft paywall после 10-й AI-транзакции.
+- Промо: **«Той-пакет»** — 3 мес Pro в подарок при создании бюджета «Той» ≥ 1М ₸ (виральный hook, шеринг в WhatsApp).
+
+### 6.4 Юнит-экономика (проекция)
+
+| Метрика | Target |
+|---|---|
+| CAC | ≤ 1 500 ₸ (органика + инфлюэнсеры IG/TikTok KZ) |
+| Free→Paid conversion | 4–6% (benchmark privacy-first apps) |
+| ARPU Pro (annual) | ~9 500 ₸/год (средний микс месячная/годовая) |
+| Retention P12M (Pro) | ≥ 55% |
+| LTV (24 мес) | ≈ 19 000 ₸ |
+| COGS/user/year | ≤ 250 ₸ (OpenAI + infra; хранение локально) |
+| LTV:CAC | ≥ 12:1 |
+
+### 6.5 B2B upsell (фаза 2)
+- **MonAi для команд** — ИП/кафе/семьи: общий кошелёк, роли, экспорт в 1С / Kaspi Business.
+- Цена: **4 990 ₸/мес за 5 seats**, +990 ₸ за seat сверх.
+- Отдельная вкладка «Налоги» — автогенерация формы 910.00 для самозанятых (партнёрство с eGov / Kaspi).
+
+---
+
+## 7. Roadmap
+
+### M0 — Pre-MVP (недели 0–2)
+- Фиксация требований, дизайн-прототип (Figma) на 12 экранов.
+- Стек: **Swift + SwiftUI** для iOS; **Kotlin Multiplatform** для Android (M4) с переиспользованием бизнес-логики.
+- OpenAI-аккаунт + Zero Retention endpoint + budget-алерты.
+- Сбор датасета из 500 реальных SMS/push (анонимизированных) для evals.
+- Юридическая консультация по 94-V: форма consent, трансграничная передача.
+
+### M1 — Closed Alpha (недели 3–8)
+**Цель**: 50 внутренних юзеров, core loop работает.
+- iOS app: SwiftUI + GRDB + **CloudKit Private Database** (E2E из коробки).
+- Голосовой ввод: `SpeechAnalyzer` (iOS 26+) с fallback на Whisper API.
+- Парсер: Apple Foundation Models (iOS 26+) или `gpt-4o-mini`.
+- Системный промпт v1 + validator.
+- 3 кошелька (наличные, Kaspi, Halyk), 15 системных категорий.
+- Ручной ввод, редактирование, удаление, soft delete.
+- Экраны: «Сегодня», «Месяц», список транзакций, детали.
+- Eval-suite: 200 тестовых фраз, **target ≥ 85% точность по сумме, ≥ 75% по категории**.
+
+### M2 — Open Beta (недели 9–14)
+**Цель**: 2 000 юзеров, TestFlight public link.
+- SMS/Push paste с детекцией банка (regex + LLM fallback) для Kaspi, Halyk, BCC, Freedom, Jusan, Forte.
+- Обезличивание SMS перед отправкой в облако.
+- Бюджеты + push-алерты (80%, 100%).
+- FX через НБ РК (cron 1×/день).
+- Шала-казахский tuned prompt (few-shot из реальных данных).
+- **Рассрочка-трекер** (parent tx + N scheduled child tx).
+- Виджеты iOS (баланс + быстрый ввод).
+- Siri Shortcut: «Hey Siri, добавь трату».
+- Аналитика: Mixpanel + Sentry (только агрегаты, без raw tx).
+
+### M3 — Public Launch iOS (недели 15–20)
+**Цель**: релиз в App Store KZ/RU-регион, 10 000 юзеров.
+- Paywall + RevenueCat.
+- **Lifetime promo для первых 500**.
+- Onboarding на kk/ru с explicit consent.
+- **Той-планировщик** и **Sadaqa-отчёт** (годовой PDF).
+- PR: Tengrinews, bluescreen.kz, Forbes KZ, инфлюэнсеры финграм-ниши.
+- Referral: 1 мес Pro за приведённого друга.
+
+### M4 — Android + Cross-platform (недели 21–30)
+- Kotlin Multiplatform: переиспользуем бизнес-логику (SQLDelight, Ktor-client).
+- Android UI на Jetpack Compose.
+- **Android killer-фича**: `NotificationListenerService` — автоматическое чтение push от банков без копипаста.
+- Google Drive App Data sync (AES-GCM, ключ в Android Keystore).
+- Material You theming + общие design tokens с iOS.
+
+### M5 — Smart layer (недели 31–40)
+- Fully on-device mode **для Android** (ML Kit Speech + локальная LLM — Gemini Nano если доступно, иначе Phi-3-mini ONNX).
+- OCR чеков (VisionKit iOS / ML Kit Android) → структурированный ввод.
+- **Парсер фискальных QR**: чеки РК содержат QR с данными налогового органа — парсим без AI.
+- Recurring detection: автоматическое распознавание подписок (Netflix, Yandex Plus) из истории.
+- Weekly AI-инсайты: «в октябре ты потратил на такси на 34% больше, чем в среднем».
+
+### M6 — Monetization v2 + B2B (квартал 3)
+- Web-dashboard (read-only) для просмотра аналитики с компа.
+- **MonAi для команд** (ИП/семьи, 5 seats).
+- Интеграция с 1С / Kaspi Business (экспорт).
+- Форма 910.00 для самозанятых.
+- Партнёрство с банками: whitelabel-версия (опционально).
+
+### Risk register
+
+| Риск | Митигация |
+|---|---|
+| Kaspi/Halyk меняют формат push | Eval-suite + regression-тест SMS-парсера; LLM-fallback устойчивее regex. |
+| Стоимость OpenAI растёт | On-device режим готов с M3 (iOS) и M5 (Android); кеш идентичных запросов. |
+| App Store reject за «financial app» | Чётко позиционируем как **personal tracker**, НЕ банк; все ПДн локально; нет подключения к счетам через API. |
+| Низкий kk-охват в тренировке LLM | Собираем свой датасет; fine-tune `gpt-4o-mini` через OpenAI Fine-tuning к M5, если базовой модели не хватит. |
+| 94-V «О ПДн» РК — трансграничная передача | Consent + Zero Retention + DPA с OpenAI; обезличивание SMS; уведомление МЦРИАП при необходимости. |
+| Apple Foundation Models недоступны на старых iOS | Cloud fallback на `gpt-4o-mini` работает везде; on-device — бонус для iOS 26+. |
+
+---
+
+## 8. UI-тон
+
+- **Главный экран**: большая круглая кнопка микрофона снизу; над ней — мини-список последних 3 транзакций и «осталось на день: X ₸».
+- **Палитра**: тёплый бежевый background (`#F3EFE8`), акцент — спелая хурма (`#E87A3A`), тексты графит (`#1E1E1E`). Dark mode: графит + тёплый янтарь.
+- **Шрифт**: SF Pro (iOS) / Inter (Android + web). Казахская диакритика без обрезаний (testcase: «Әәә Ғғ Ққ Ңң Өө Ұұ Үү Һһ Іі»).
+- **Стиль**: неоморфизм-light — мягкие тени 12/24px, без чрезмерной 3D-ваты. Ближе к Apple Wallet, чем к 2019-му dribbble-неоморфу.
+- **Тактильность**: каждая подтверждённая транзакция — `UIImpactFeedbackGenerator(.soft)` / `HapticFeedback.CONTEXT_CLICK`. Успех = двойная вибрация.
+- **Пустые состояния**: иллюстрации с локальным флёром (пиалы, баурсак, Байтерек) — но сдержанно.
+
+---
+
+## Changelog
+
+### v0.1 → v0.2 (2026-04-24)
+
+**Критические правки по итогам review v0.1:**
+
+1. **iOS SMS-ограничение**: явно зафиксировано — на iOS нет `NotificationListenerService`; только копипаст через Share Sheet. На Android это killer-фича (M4).
+2. **On-device LLM**: переход с гипотетического `Llama-3.2-3B` (~2 GB к бандлу) на **Apple Foundation Models** (iOS 26+, 0 MB, бесплатно). Реалистично для 2026.
+3. **`mobile_transfer` семантика**: разведено — `kind=expense + category=mobile_transfer` для P2P родственнику/другу; `kind=transfer + category=null` для self-transfer. Убран противоречивый `self_transfer` из списка категорий.
+4. **FX-переводы**: добавлена секция §4.3.1 — две ноги с разными `amount_minor`/`currency`, связанные `transfer_pair_id`, исключаются из expense/income аналитики.
+5. **North-star**: 15 tx/user/week → **5 tx/user/week W4** (реалистичный бенчмарк) + secondary D30 retention ≥ 35%.
+6. **Free-tier**: 30 → **100 AI-парсингов/мес** (формирование привычки). COGS позволяет.
+7. **Lifetime**: был open-ended → **limited first 500** (анти-каннибализация подписки).
+8. **Рассрочка**: категория → **атрибут транзакции** `is_installment`. Настоящая категория (home/clothes/...) сохраняется. Раздел «Рассрочки» = фильтр.
+9. **US-1 latency**: недостижимые ≤ 1.5с через сеть → **on-device ≤ 1.5с, cloud P50 ≤ 3с / P95 ≤ 5с**.
+10. **94-V compliance**: добавлен чеклист — consent на онбординге, OpenAI Zero Retention endpoint, DPA, обезличивание SMS, возможная регистрация оператора ПДн в МЦРИАП.
+
+---
+
+**Owner**: Product (ты) · **Tech lead**: TBD · **Дизайн**: TBD
+**Версия**: v0.2 · **Дата**: 2026-04-24
