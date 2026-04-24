@@ -5,7 +5,17 @@
 	import { fade, scale, fly } from 'svelte/transition';
 	import { quintOut, cubicOut } from 'svelte/easing';
 	import { parseTransaction, toKzt } from '$lib/ai/mock-parser.js';
-	import { setPending, walletStore } from '$lib/stores/transactions.svelte.js';
+	import { setPending, walletStore, addTransaction } from '$lib/stores/transactions.svelte.js';
+	import { CATEGORIES } from '$lib/types.js';
+
+	const quickCategories = /** @type {const} */ ([
+		'food', 'groceries', 'transport_taxi', 'transport_fuel', 'entertainment',
+		'clothes', 'health', 'gifts', 'home', 'subscriptions', 'other_expense'
+	]);
+
+	let description = $state('');
+	let amountStr = $state('');
+	let pickedCategory = $state(/** @type {string | null} */ (null));
 
 	let mode = $derived($page.url.searchParams.get('mode') ?? 'voice');
 
@@ -158,10 +168,40 @@
 		goto(base || '/');
 	}
 
-	function handleTextSubmit(/** @type {SubmitEvent} */ ev) {
+	const amountNum = $derived(Number(amountStr.replace(/[^\d.]/g, '')) || 0);
+	const canSaveManual = $derived(description.trim().length > 0 && amountNum > 0);
+
+	function saveManual() {
+		if (!canSaveManual) return;
+		const slug = pickedCategory ?? 'other_expense';
+		const tiyn = Math.round(amountNum * 100);
+		addTransaction({
+			id: 't_' + Date.now(),
+			walletId: walletStore.items[0].id,
+			category: /** @type {any} */ (slug),
+			kind: 'expense',
+			amountMinor: tiyn,
+			currency: 'KZT',
+			amountKztMinor: tiyn,
+			merchant: description.trim(),
+			counterparty: null,
+			note: null,
+			occurredAt: Date.now(),
+			source: 'manual',
+			rawInput: null,
+			aiConfidence: 1,
+			isInstallment: false,
+			installmentMonths: null
+		});
+		description = '';
+		amountStr = '';
+		pickedCategory = null;
+		goto(base || '/');
+	}
+
+	function handleManualSubmit(/** @type {SubmitEvent} */ ev) {
 		ev.preventDefault();
-		if (!transcript.trim()) return;
-		void submit(transcript);
+		saveManual();
 	}
 </script>
 
@@ -260,38 +300,82 @@
 		</div>
 	</div>
 {:else}
-	<div class="text-screen" in:fly={{ y: 20, duration: 260, easing: cubicOut }}>
-		<header>
-			<button class="icon-circle" type="button" onclick={back} aria-label="Назад">
-				<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
-			</button>
-			<div class="title">Текстом</div>
-			<div style="width: 40px"></div>
-		</header>
+	<div class="sheet-back" in:fade={{ duration: 180 }} out:fade={{ duration: 150 }} onclick={back} role="presentation"></div>
+	<form
+		class="sheet"
+		onsubmit={handleManualSubmit}
+		in:fly={{ y: '100%', duration: 360, easing: cubicOut }}
+		out:fly={{ y: '100%', duration: 220, easing: cubicOut }}
+	>
+		<button class="sheet-close icon-circle" type="button" onclick={back} aria-label="Закрыть">
+			<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
+		</button>
 
-		<form class="text-form" onsubmit={handleTextSubmit}>
-			<label class="subtle" for="text-input">Опиши трату</label>
-			<textarea
-				id="text-input"
-				bind:value={transcript}
-				placeholder="Жібердім маме 10к"
-				rows="3"
-				autofocus
-			></textarea>
-			<button class="primary" type="submit" disabled={!transcript.trim() || parsing}>
-				{parsing ? 'Разбираю…' : 'Разобрать'}
+		<div class="sheet-meta">
+			<button class="chip meta-chip" type="button">Today
+				<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
 			</button>
-		</form>
-
-		<div class="text-examples">
-			<div class="subtle ex-head">Или пример:</div>
-			<div class="ex-row">
-				{#each examples as ex}
-					<button class="ex-text" type="button" onclick={() => (transcript = ex)}>{ex}</button>
-				{/each}
-			</div>
+			<button class="chip meta-chip" type="button">Once
+				<svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+			</button>
 		</div>
-	</div>
+
+		<input
+			class="sheet-input desc"
+			type="text"
+			bind:value={description}
+			placeholder="Description"
+			autocomplete="off"
+			autofocus
+		/>
+		<input
+			class="sheet-input amt tabular"
+			type="text"
+			inputmode="decimal"
+			bind:value={amountStr}
+			placeholder="Amount"
+			autocomplete="off"
+		/>
+
+		<div class="cat-row">
+			<button
+				class="cat-pill add"
+				type="button"
+				class:active={pickedCategory === null}
+				onclick={() => (pickedCategory = null)}
+				aria-label="Без категории"
+			>
+				<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+			</button>
+			{#each quickCategories as slug}
+				{@const c = CATEGORIES[slug]}
+				<button
+					class="cat-pill"
+					class:active={pickedCategory === slug}
+					type="button"
+					onclick={() => (pickedCategory = slug)}
+				>
+					<span class="cat-emoji">{c.icon}</span>
+					<span class="cat-label">{c.ru}</span>
+				</button>
+			{/each}
+		</div>
+
+		<div class="sheet-actions">
+			<button class="tag-btn" type="button" aria-label="Тег">
+				<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<line x1="4" y1="9" x2="20" y2="9"/>
+					<line x1="4" y1="15" x2="20" y2="15"/>
+					<line x1="10" y1="3" x2="8" y2="21"/>
+					<line x1="16" y1="3" x2="14" y2="21"/>
+				</svg>
+			</button>
+			<button class="save-btn" type="submit" disabled={!canSaveManual}>
+				<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+				Save
+			</button>
+		</div>
+	</form>
 {/if}
 
 <style>
@@ -479,55 +563,133 @@
 	.corner:active { transform: scale(0.9); }
 	.corner:disabled { cursor: not-allowed; }
 
-	/* Text-mode screen (unchanged dark style) */
-	.text-screen {
-		padding: 16px 20px 40px;
-		min-height: 100vh;
+	/* Bottom-sheet text modal */
+	.sheet-back {
+		position: fixed;
+		inset: 0;
+		background: rgba(0, 0, 0, 0.5);
+		z-index: 80;
 	}
-	.text-screen header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 24px;
-	}
-	.text-screen .title { font-weight: 700; font-size: 15px; }
-	.text-form {
+	.sheet {
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		z-index: 90;
+		background: var(--bg);
+		border-top-left-radius: 28px;
+		border-top-right-radius: 28px;
+		padding: 22px 22px calc(22px + env(safe-area-inset-bottom));
+		max-width: 440px;
+		margin: 0 auto;
 		display: flex;
 		flex-direction: column;
-		gap: 12px;
-		padding: 20px 0;
+		gap: 18px;
+		box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.5);
 	}
-	.text-form label { padding: 0 4px; }
-	textarea {
-		background: var(--bg-elev);
-		border-radius: var(--radius-md);
-		border: 1px solid var(--border);
-		padding: 16px;
-		font-size: 17px;
-		resize: none;
+	.sheet-close {
+		position: absolute;
+		top: 16px;
+		right: 16px;
+		background: var(--bg-soft);
+		border-color: transparent;
+	}
+	.sheet-meta {
+		display: flex;
+		gap: 8px;
+		margin-top: 8px;
+	}
+	.meta-chip {
+		background: var(--bg-soft);
+		font-weight: 600;
+		font-size: 13px;
+	}
+	.sheet-input {
+		background: transparent;
+		border: none;
 		outline: none;
+		font-size: 30px;
+		font-weight: 800;
+		letter-spacing: -0.03em;
+		color: var(--fg);
+		padding: 2px 0;
+		width: 100%;
 	}
-	textarea:focus {
-		border-color: var(--accent);
+	.sheet-input::placeholder {
+		color: var(--fg-subtle);
+		font-weight: 800;
 	}
-	.primary {
-		background: var(--fg);
-		color: var(--bg);
-		padding: 14px 18px;
+	.sheet-input.desc { margin-top: -8px; }
+	.sheet-input.amt { margin-top: -12px; }
+
+	.cat-row {
+		display: flex;
+		gap: 8px;
+		overflow-x: auto;
+		scrollbar-width: none;
+		margin: 0 -22px;
+		padding: 2px 22px 4px;
+	}
+	.cat-row::-webkit-scrollbar { display: none; }
+	.cat-pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 7px;
+		padding: 9px 14px;
+		background: var(--bg-soft);
 		border-radius: var(--radius-pill);
+		font-size: 14px;
+		color: var(--fg);
+		font-weight: 600;
+		flex-shrink: 0;
+		border: 1.5px solid transparent;
+		transition: border-color 140ms, background 140ms;
+	}
+	.cat-pill.active {
+		border-color: var(--fg);
+		background: var(--bg-softer);
+	}
+	.cat-pill.add {
+		padding: 9px 12px;
+		color: var(--fg-muted);
+	}
+	.cat-pill.add.active {
+		color: var(--fg);
+	}
+	.cat-emoji { font-size: 16px; line-height: 1; }
+
+	.sheet-actions {
+		display: flex;
+		gap: 10px;
+		align-items: stretch;
+	}
+	.tag-btn {
+		width: 52px;
+		flex-shrink: 0;
+		background: var(--bg-soft);
+		border: 1.5px solid var(--border);
+		border-radius: var(--radius-md);
+		display: grid;
+		place-items: center;
+		color: var(--fg-muted);
+	}
+	.save-btn {
+		flex: 1;
+		display: inline-flex;
+		justify-content: center;
+		align-items: center;
+		gap: 8px;
+		padding: 14px 18px;
+		background: var(--bg-softer);
+		color: var(--fg);
+		border-radius: var(--radius-md);
 		font-size: 15px;
 		font-weight: 700;
+		transition: background 140ms, transform 140ms;
 	}
-	.primary:disabled { opacity: 0.3; }
-	.text-examples { padding: 20px 0 0; }
-	.ex-head { margin-bottom: 10px; padding: 0 4px; }
-	.ex-row { display: flex; flex-wrap: wrap; gap: 8px; }
-	.ex-text {
-		background: var(--bg-elev);
-		padding: 8px 14px;
-		border-radius: var(--radius-pill);
-		font-size: 13px;
-		color: var(--fg);
-		border: 1px solid var(--border);
+	.save-btn:disabled {
+		opacity: 0.55;
+		cursor: not-allowed;
 	}
+	.save-btn:not(:disabled):active { transform: scale(0.98); }
 </style>
