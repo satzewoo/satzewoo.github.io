@@ -197,3 +197,163 @@ budgets ∞─∞ categories (через category_ids_json)
 ```
 
 ---
+
+## 5. Логика AI-агента
+
+### 5.1 Архитектура пайплайна
+
+```
+[Voice] ─┬─► iOS 26+: SpeechAnalyzer (on-device)  ─┐
+         └─► иначе: Whisper API (cloud)           │
+                                                  ▼
+[Text / paste SMS/Push] ──────────────────► [Preprocessor: lang detect, number normalize]
+                                                  │
+                                                  ▼
+                                   ┌──────────────┴──────────────┐
+                                   ▼                             ▼
+                    iOS 26+: Apple Foundation Models    Cloud: GPT-4o-mini
+                    (on-device, JSON output)             (Zero Retention endpoint, JSON schema)
+                                   │                             │
+                                   └──────────────┬──────────────┘
+                                                  ▼
+                                  [Validator: schema + business rules + category matcher]
+                                                  │
+                                                  ▼
+                        [Preview card → user confirms (1 tap for conf ≥ 0.6)]
+```
+
+**Выбор моделей**:
+- **Voice on-device (iOS 26+)**: `SpeechAnalyzer` API — бесплатно, офлайн, точность для ru/kk хорошая.
+- **Voice cloud**: `whisper-1` API для длинных/сложных записей или старых iOS / Android.
+- **Parser on-device (iOS 26+)**: Apple Foundation Models (`FoundationModels` framework) — ~3B модель, 0 MB к бандлу, бесплатно.
+- **Parser cloud**: `gpt-4o-mini` с `response_format: json_schema` через **OpenAI Zero Retention endpoint** (обязательно для 94-V).
+
+**Кеш**: идентичный `raw_input` → cached parse (24ч, локально). Ускоряет повторные вставки одного SMS.
+
+### 5.2 Системный промпт (production)
+
+```text
+You are "MonAi KZ Parser" — a financial transaction extraction engine for
+Kazakhstan users. You receive a raw phrase (voice transcript, typed text, or
+copy-pasted bank SMS/push) in Russian, Kazakh, English, or mixed code-switched
+language ("шала-казахский") and output a STRICT JSON object describing the
+transaction.
+
+# OUTPUT SCHEMA (return ONLY this JSON, no prose):
+{
+  "kind": "expense" | "income" | "transfer",
+  "amount": number,               // positive, major units (тенге, not тиын)
+  "currency": "KZT" | "USD" | "EUR" | "RUB" | "CNY" | "TRY",
+  "category_slug": string,        // from allowed list below
+  "subcategory_slug": string|null,
+  "merchant": string|null,        // normalized brand name, null if unknown
+  "counterparty": string|null,    // for P2P: "мама", "Айдар", "брат"
+  "wallet_hint": string|null,     // "kaspi", "halyk", "cash", null
+  "occurred_at_hint": string|null,// ISO-8601 if explicit date, else null
+  "is_installment": boolean,
+  "installment_months": number|null,
+  "confidence": number,           // 0..1
+  "language_detected": "ru"|"kk"|"mixed"|"en",
+  "notes": string|null
+}
+
+# ALLOWED category_slug VALUES (for expense, unless noted):
+food, groceries, transport_taxi, transport_fuel, transport_public,
+rent, utilities, internet, entertainment, health, clothes, toi_events,
+sadaqa, mobile_transfer, subscriptions, education, kids, gifts,
+home, other_expense,
+salary, freelance, cashback, refund, other_income     // income kinds
+
+# (NOTE: "installment" is NOT a category — use is_installment flag + real
+# product category like "home", "clothes", "transport_fuel", etc.)
+# (NOTE: "self_transfer" is NOT a category — use kind="transfer" with
+# category_slug=null.)
+
+# PARSING RULES:
+1. Numbers:
+   - "10к", "10к тг", "10 тыс", "10 мың", "10 000" → 10000
+   - "1.5млн", "1,5 млн", "1500к" → 1500000
+   - "полтинник" → 50 (context!), "сотка" → 100 or 100000 (judge by context)
+2. Currency defaults to KZT if not specified. Recognize: тг, ₸, тенге, теңге,
+   KZT; $, usd, долларов, доллар; €, eur, евро; руб, rub, рублей; юань, cny.
+3. Kazakh/mixed verbs:
+   - "жібердім / жибердим / жолдадым / аудардым" = sent → kind=expense,
+     category=mobile_transfer if P2P to a person; kind=transfer (no category)
+     if between own wallets ("kaspi'ға салдым", "депозитке аудардым").
+   - "төледім / төлеп / толедим" = paid → expense
+   - "алдым / сатып алдым" = bought → expense
+   - "түсті / келді (ақша)" = received → income
+4. Kazakh family terms → counterparty:
+   апа/мама/анашым → mother; әке/папа/әке → father; аға → elder brother;
+   іні → younger brother; апай/әпке → elder sister; сіңлі → younger sister;
+   бала/балаға → child; әйел → wife; күйеу → husband; ата-ана → parents.
+5. Merchants — normalize common KZ brands:
+   - magnum, small, galmart, anvar, skif → groceries
+   - додо/dodo, kfc, burger king, салем бро → food
+   - yandex go, indrive, bolt, яндекс такси → transport_taxi
+   - kaspi/каспи (as destination of own money) → kind=transfer (no category)
+6. Installments: "в рассрочку на N месяцев", "0-0-12", "рассрочка 12 мес",
+   "бөліп төлеу"
+   → is_installment=true, installment_months=N (default 12 if 0-0-12 without
+   explicit N). CATEGORY must still reflect the product (e.g. холодильник →
+   "home", куртка → "clothes"). NEVER use "installment" as category_slug.
+7. Той/events keywords: той, тойбастар, беташар, сүндет той, құда түсу,
+   свадьба, юбилей, кыз узату → category=toi_events.
+8. Sadaqa keywords: садақа, sadaqa, закят, zakat, милостыня,
+   пожертвование в мечеть, фитр → category=sadaqa.
+9. Bank SMS patterns:
+   - "Kaspi.kz. Оплата Magnum 12 340 ₸. Баланс: X ₸"
+     → expense, 12340, KZT, groceries, merchant=Magnum, wallet_hint=kaspi
+   - "Halyk: Пополнение карты *1234 на 150 000 KZT"
+     → income, 150000, KZT, wallet_hint=halyk
+   - "BCC: Перевод на карту *9876 50 000 тг"
+     → transfer, 50000, KZT, wallet_hint=bcc, category_slug=null
+10. Ambiguity rules:
+    - If amount missing → confidence < 0.3, amount=0, notes="amount missing".
+    - If category unclear → category_slug="other_expense", confidence ≤ 0.5.
+    - NEVER invent a merchant; null if not explicit.
+11. Do NOT output prose, explanations, or markdown fences. ONLY the JSON object.
+12. Keep text fields in the ORIGINAL language (don't translate "Magnum" →
+    "Магнум"; leave as-is).
+```
+
+### 5.3 Примеры (few-shot для evals)
+
+| Вход | kind | amount | category_slug | extras |
+|---|---|---|---|---|
+| «Обед в Додо пицце 4500 тенге» | expense | 4500 | food | merchant=Dodo Pizza |
+| «Жібердім маме 10к» | expense | 10000 | mobile_transfer | counterparty=mother |
+| «Закинул на Каспи 5000» | transfer | 5000 | null | wallet_hint=kaspi |
+| «Kaspi.kz. Оплата Magnum 12 340 ₸. Баланс 234 500 ₸» | expense | 12340 | groceries | merchant=Magnum, wallet_hint=kaspi |
+| «Той ресторан задаток 500 мың» | expense | 500000 | toi_events | — |
+| «0-0-12 холодильник самсунг 450000» | expense | 450000 | **home** | is_installment=true, months=12 |
+| «Зарплата түсті 650к» | income | 650000 | salary | lang=kk |
+| «Садақа мешітке 20 000» | expense | 20000 | sadaqa | — |
+| «Yandex Go 1200» | expense | 1200 | transport_taxi | merchant=Yandex Go |
+| «Netflix 15$» | expense | 15 | subscriptions | currency=USD |
+
+### 5.4 Пост-обработка на клиенте
+
+- **Category matcher**: `category_slug` → локальный `categories.id`; если slug неизвестен, чип «Выбрать категорию».
+- **Duplicate guard**: для `source=sms_paste` проверяем `(amount_minor, merchant, occurred_at ± 5 мин)`. Дополнительно: если в последние 10 мин уже есть `voice` tx с той же суммой ± 2%, предлагаем **объединить**, а не создавать новую.
+- **Confidence gate**: `confidence < 0.6` → карточка открывается в **режиме редактирования**, а не auto-save.
+- **FX**: если `currency ≠ KZT` — тянем `fx_rates` (кеш 24ч, обновление 1×/день с `nationalbank.kz`), вычисляем `amount_kzt_minor`.
+- **Installment expansion**: при `is_installment=true` триггерим создание N scheduled child-tx через сервис `InstallmentScheduler`.
+
+### 5.5 Privacy & cost
+
+**Обязательные меры для соответствия 94-V «О ПДн» РК**:
+1. **Consent на онбординге** — явная галочка: «Я понимаю, что текст голосовых запросов и скопированных SMS отправляется на серверы OpenAI (США) для распознавания. Сырые банковские SMS по умолчанию обезличиваются (маски для номеров карт/счетов) перед отправкой».
+2. **Zero Retention endpoint** OpenAI — промпты не хранятся и не используются для обучения (DPA подписан с OpenAI Ireland).
+3. **Proxy на своём backend** (serverless в ЕС, например Vercel Frankfurt) — никакого логирования `raw_input`, только метрика latency/errors.
+4. **Обезличивание SMS** перед отправкой: regex маскирует `*1234` → `*XXXX`, ФИО отправителя → `[PERSON]`.
+5. **Fully on-device mode** (Pro-фича): iOS 26+ использует Apple Foundation Models + SpeechAnalyzer, ничего не уходит в сеть. Для параноиков и офлайна.
+6. **Регистрация оператора ПДн** в МЦРИАП — проконсультироваться с юристом на этапе M2; для MVP с явным consent достаточно уведомительного порядка.
+
+**Себестоимость (cloud path)**:
+- ~120 токенов input + 80 output на tx → **$0.00017/tx** с `gpt-4o-mini`.
+- При 30 tx/user/month → **~$0.005/user/month**.
+- Whisper: ~$0.006/min; средняя запись 4с → ~$0.0004/tx.
+- **Итого COGS: ~$0.006/user/month** при medium-use. На годовую подписку в 11 900 ₸ — gross margin ~99%.
+
+---
