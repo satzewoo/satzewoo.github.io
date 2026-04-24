@@ -1,29 +1,39 @@
-/* MonAi KZ — design tokens (from spec §8) */
+/* MonAi KZ — get-monai.app-inspired minimal design */
 :root {
-	--bg: #f3efe8;
-	--bg-elev: #fbf8f3;
-	--fg: #1e1e1e;
-	--fg-muted: #6c6760;
-	--fg-subtle: #a8a29b;
-	--accent: #e87a3a;
-	--accent-soft: #f4b088;
-	--accent-pressed: #c7651e;
-	--success: #4a8c5f;
-	--danger: #c4523a;
+	--bg: #f7f6f2;
+	--bg-elev: #ffffff;
+	--bg-soft: #eeede8;
+	--fg: #111111;
+	--fg-muted: #7a7872;
+	--fg-subtle: #b6b3ab;
+	--border: #e8e6df;
+	--border-strong: #d5d2c9;
 
-	--radius-sm: 10px;
-	--radius-md: 18px;
+	--accent: #ed6f4b;
+	--accent-soft: #f5a489;
+	--accent-pressed: #d85831;
+
+	--bar-tan: #f0c98a;
+	--bar-sky: #b8d7ee;
+	--bar-rose: #f4c0cc;
+	--bar-lime: #e5e28f;
+	--bar-mint: #c7e0c8;
+	--bar-lavender: #d6c8ec;
+	--bar-peach: #f4c8a8;
+	--bar-empty: #eeede8;
+
+	--success: #3f8c5a;
+	--danger: #dd5b47;
+
+	--radius-pill: 999px;
+	--radius-sm: 12px;
+	--radius-md: 20px;
 	--radius-lg: 28px;
+	--radius-xl: 36px;
 
-	--shadow-neu-sm:
-		4px 4px 10px rgba(180, 165, 140, 0.35),
-		-4px -4px 10px rgba(255, 255, 255, 0.75);
-	--shadow-neu-md:
-		10px 10px 24px rgba(180, 165, 140, 0.4),
-		-10px -10px 24px rgba(255, 255, 255, 0.85);
-	--shadow-neu-inset:
-		inset 4px 4px 8px rgba(180, 165, 140, 0.35),
-		inset -4px -4px 8px rgba(255, 255, 255, 0.75);
+	--shadow-sm: 0 1px 2px rgba(20, 15, 10, 0.04);
+	--shadow-md: 0 4px 16px rgba(20, 15, 10, 0.06);
+	--shadow-fab: 0 10px 28px rgba(237, 111, 75, 0.35);
 
 	--font:
 		-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter',
@@ -33,23 +43,15 @@
 
 @media (prefers-color-scheme: dark) {
 	:root {
-		--bg: #1c1a17;
-		--bg-elev: #26231f;
-		--fg: #f1ede5;
-		--fg-muted: #9e9890;
-		--fg-subtle: #6a655e;
-		--accent: #f39a5c;
-		--accent-soft: #b8754a;
-		--accent-pressed: #d67a38;
-		--shadow-neu-sm:
-			4px 4px 10px rgba(0, 0, 0, 0.5),
-			-4px -4px 10px rgba(70, 62, 52, 0.3);
-		--shadow-neu-md:
-			10px 10px 24px rgba(0, 0, 0, 0.55),
-			-10px -10px 24px rgba(70, 62, 52, 0.35);
-		--shadow-neu-inset:
-			inset 4px 4px 8px rgba(0, 0, 0, 0.5),
-			inset -4px -4px 8px rgba(70, 62, 52, 0.3);
+		--bg: #131210;
+		--bg-elev: #1c1b18;
+		--bg-soft: #26241f;
+		--fg: #f3f1ec;
+		--fg-muted: #938f86;
+		--fg-subtle: #5a5750;
+		--border: #2a2824;
+		--border-strong: #3a3833;
+		--bar-empty: #26241f;
 	}
 }
 
@@ -67,10 +69,11 @@ body {
 	color: var(--fg);
 	font-family: var(--font);
 	font-size: 16px;
-	line-height: 1.4;
+	line-height: 1.35;
 	-webkit-font-smoothing: antialiased;
 	text-rendering: optimizeLegibility;
 	overscroll-behavior-y: contain;
+	letter-spacing: -0.01em;
 }
 
 button {
@@ -88,7 +91,7 @@ textarea {
 	color: inherit;
 }
 
-/* Phone frame — mobile-first, centered on desktop */
+/* Phone frame — centered on desktop */
 .frame {
 	max-width: 440px;
 	min-height: 100vh;
@@ -96,13 +99,6 @@ textarea {
 	padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
 		env(safe-area-inset-left);
 	position: relative;
-	overflow: hidden;
-}
-
-.card {
-	background: var(--bg-elev);
-	border-radius: var(--radius-md);
-	box-shadow: var(--shadow-neu-sm);
 }
 
 .h1 {
@@ -130,4 +126,30 @@ textarea {
 
 .tabular {
 	font-variant-numeric: tabular-nums;
+}
+
+/* Reusable pill chip */
+.chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 12px;
+	background: var(--bg-soft);
+	border-radius: var(--radius-pill);
+	font-size: 13px;
+	color: var(--fg-muted);
+	font-weight: 500;
+	border: none;
+}
+
+.icon-circle {
+	width: 40px;
+	height: 40px;
+	border-radius: 50%;
+	background: var(--bg-elev);
+	border: 1px solid var(--border);
+	display: grid;
+	place-items: center;
+	font-size: 16px;
+	color: var(--fg);
 }

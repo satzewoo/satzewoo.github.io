@@ -65,6 +65,29 @@ export const CATEGORIES = /** @type {const} */ ({
  * @property {number | null} installmentMonths
  */
 
+/** Prototype FX rate — KZT tiyn to USD */
+export const KZT_PER_USD = 475;
+
+/**
+ * Format KZT minor units (tiyn) as USD dollars with cents, e.g. "568.97"
+ * (get-monai.app-style display; prototype scales KZT via a fixed FX rate).
+ * @param {number} tiyn
+ */
+export function fmtUsd(tiyn) {
+	const usd = tiyn / 100 / KZT_PER_USD;
+	return usd.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/**
+ * Compact form: "1.2k" for >=1000, otherwise whole dollars.
+ * @param {number} tiyn
+ */
+export function fmtUsdCompact(tiyn) {
+	const usd = tiyn / 100 / KZT_PER_USD;
+	if (usd >= 1000) return (usd / 1000).toFixed(1) + 'k';
+	return usd.toFixed(usd < 10 ? 2 : 0);
+}
+
 /**
  * Format KZT minor units (tiyn) to "12 340 ₸"
  * @param {number} minor
