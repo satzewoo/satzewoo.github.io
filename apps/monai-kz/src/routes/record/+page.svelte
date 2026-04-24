@@ -8,13 +8,33 @@
 
 	let mode = $derived($page.url.searchParams.get('mode') ?? 'voice');
 
+	const LANG_KEY = 'monai.speechLang';
+	const LANGS = /** @type {const} */ ([
+		{ code: 'ru-RU', label: 'RU' },
+		{ code: 'kk-KZ', label: 'KZ' }
+	]);
+
 	let listening = $state(false);
 	let transcript = $state('');
 	let interim = $state('');
 	let error = $state(/** @type {string | null} */ (null));
 	let parsing = $state(false);
+	let lang = $state(
+		typeof localStorage !== 'undefined'
+			? localStorage.getItem(LANG_KEY) ?? 'ru-RU'
+			: 'ru-RU'
+	);
 	/** @type {any} */
 	let recognition = null;
+
+	/** @param {string} code */
+	function setLang(code) {
+		lang = code;
+		if (typeof localStorage !== 'undefined') localStorage.setItem(LANG_KEY, code);
+		// Re-create recognition on next start so new lang applies
+		if (listening && recognition) recognition.stop();
+		recognition = null;
+	}
 
 	const examples = [
 		'Обед в Додо пицце 4500 тенге',
@@ -53,7 +73,7 @@
 		if (!SR) return null;
 		if (recognition) return recognition;
 		recognition = new SR();
-		recognition.lang = 'ru-RU';
+		recognition.lang = lang;
 		recognition.interimResults = true;
 		recognition.continuous = false;
 		recognition.onresult = (
@@ -153,7 +173,22 @@
 			</svg>
 		</button>
 		<div class="title">{mode === 'text' ? 'Текстом' : 'Голосом'}</div>
-		<div style="width: 40px"></div>
+		{#if mode === 'voice'}
+			<div class="lang-switch" role="group" aria-label="Язык распознавания">
+				{#each LANGS as l}
+					<button
+						class="lang-btn"
+						class:active={lang === l.code}
+						type="button"
+						onclick={() => setLang(l.code)}
+					>
+						{l.label}
+					</button>
+				{/each}
+			</div>
+		{:else}
+			<div style="width: 40px"></div>
+		{/if}
 	</header>
 
 	{#if mode === 'voice'}
@@ -238,6 +273,26 @@
 	.title {
 		font-weight: 600;
 		font-size: 15px;
+	}
+	.lang-switch {
+		display: inline-flex;
+		padding: 2px;
+		border-radius: var(--radius-pill);
+		background: var(--bg-soft);
+		border: 1px solid var(--border);
+	}
+	.lang-btn {
+		padding: 4px 10px;
+		border-radius: var(--radius-pill);
+		font-size: 12px;
+		font-weight: 600;
+		color: var(--fg-muted);
+		letter-spacing: 0.02em;
+	}
+	.lang-btn.active {
+		background: var(--bg-elev);
+		color: var(--fg);
+		box-shadow: var(--shadow-sm);
 	}
 
 	.stage {
