@@ -1,5 +1,4 @@
 <script>
-	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { txStore, walletStore, resetToSeed } from '$lib/stores/transactions.svelte.js';
 	import { formatMoney } from '$lib/types.js';
@@ -18,14 +17,6 @@
 	});
 
 	const recentTx = $derived(txStore.items.slice(0, 20));
-
-	function openRecord() {
-		goto(`${base}/record`);
-	}
-
-	function openText() {
-		goto(`${base}/record?mode=text`);
-	}
 </script>
 
 <div class="home">
@@ -74,8 +65,8 @@
 	</section>
 
 	<div class="fab">
-		<button class="text-btn" type="button" onclick={openText} aria-label="Текстом">abc</button>
-		<MicButton onclick={openRecord} />
+		<a class="text-btn" href="{base}/record?mode=text" aria-label="Текстом">abc</a>
+		<MicButton href="{base}/record" />
 		<div class="spacer"></div>
 	</div>
 </div>
@@ -215,6 +206,11 @@
 		font-size: 16px;
 		font-weight: 600;
 		font-family: var(--font-mono);
+		display: grid;
+		place-items: center;
+		text-decoration: none;
+		-webkit-user-select: none;
+		user-select: none;
 	}
 	.spacer {
 		width: 52px;
