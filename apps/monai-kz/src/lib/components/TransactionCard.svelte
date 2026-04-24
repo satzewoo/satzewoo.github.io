@@ -1,6 +1,5 @@
 <script>
-	import { CATEGORIES, formatMoney, formatRelativeTime } from '$lib/types.js';
-	import { walletStore } from '$lib/stores/transactions.svelte.js';
+	import { CATEGORIES, fmtUsd } from '$lib/types.js';
 
 	/** @typedef {import('$lib/types.js').Transaction} Transaction */
 
@@ -8,28 +7,23 @@
 	let { tx, onclick } = $props();
 
 	const category = $derived(tx.category ? CATEGORIES[tx.category] : null);
-	const wallet = $derived(walletStore.items.find((w) => w.id === tx.walletId));
-	const isNegative = $derived(tx.kind === 'expense');
-	const sign = $derived(tx.kind === 'income' ? '+' : tx.kind === 'expense' ? '−' : '→');
+	const isIncome = $derived(tx.kind === 'income');
 </script>
 
 <button class="row" {onclick} type="button">
-	<div class="icon" style="background: {category?.color ?? '#A8A29B'}20; color: {category?.color ?? '#A8A29B'}">
-		{category?.icon ?? '•'}
+	<div class="icon">
+		<span class="emoji">{category?.icon ?? '•'}</span>
 	</div>
 	<div class="body">
-		<div class="top">
-			<div class="title">
-				{tx.merchant ?? tx.counterparty ?? category?.ru ?? 'Без категории'}
-			</div>
-			<div class="amount tabular" class:neg={isNegative} class:pos={tx.kind === 'income'}>
-				{sign}{formatMoney(tx.amountMinor, tx.currency)}
-			</div>
+		<div class="title">
+			{tx.merchant ?? tx.counterparty ?? category?.ru ?? 'Без категории'}
 		</div>
-		<div class="bot subtle">
-			<span>{category?.ru ?? 'other'}{wallet ? ` · ${wallet.name}` : ''}</span>
-			<span>{formatRelativeTime(tx.occurredAt)}</span>
-		</div>
+		{#if category}
+			<div class="tag subtle">#{category.ru.toLowerCase()}</div>
+		{/if}
+	</div>
+	<div class="amount tabular" class:pos={isIncome}>
+		{isIncome ? '+' : ''}${fmtUsd(tx.amountKztMinor)}
 	</div>
 </button>
 
@@ -39,11 +33,11 @@
 		display: flex;
 		gap: 12px;
 		align-items: center;
-		padding: 14px 16px;
+		padding: 10px 4px;
 		background: transparent;
-		border-radius: var(--radius-md);
 		text-align: left;
 		transition: background 120ms ease;
+		border-radius: 16px;
 	}
 	.row:active {
 		background: rgba(0, 0, 0, 0.03);
@@ -52,20 +46,18 @@
 		flex: 0 0 42px;
 		width: 42px;
 		height: 42px;
-		border-radius: 50%;
+		border-radius: 14px;
+		background: var(--bg-soft);
 		display: grid;
 		place-items: center;
-		font-size: 20px;
+	}
+	.emoji {
+		font-size: 22px;
+		line-height: 1;
 	}
 	.body {
 		flex: 1;
 		min-width: 0;
-	}
-	.top {
-		display: flex;
-		justify-content: space-between;
-		align-items: baseline;
-		gap: 8px;
 	}
 	.title {
 		font-weight: 600;
@@ -73,18 +65,19 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+		color: var(--fg);
+	}
+	.tag {
+		margin-top: 1px;
+		font-size: 12px;
 	}
 	.amount {
-		font-weight: 600;
+		font-weight: 700;
 		font-size: 15px;
 		color: var(--fg);
+		white-space: nowrap;
 	}
 	.amount.pos {
 		color: var(--success);
-	}
-	.bot {
-		display: flex;
-		justify-content: space-between;
-		margin-top: 2px;
 	}
 </style>

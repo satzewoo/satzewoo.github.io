@@ -12,7 +12,7 @@
 		aria-label="Записать голосом"
 		data-sveltekit-preload-data="tap"
 	>
-		<svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+		<svg viewBox="0 0 24 24" width={size * 0.4} height={size * 0.4} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 			<rect x="9" y="2" width="6" height="12" rx="3" />
 			<path d="M5 10v2a7 7 0 0 0 14 0v-2" />
 			<line x1="12" y1="19" x2="12" y2="22" />
@@ -23,8 +23,8 @@
 		{/if}
 	</a>
 {:else}
-	<button class="mic" class:active onclick={onclick} type="button" style="--size: {size}px" aria-label="Записать голосом">
-		<svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+	<button class="mic" class:active {onclick} type="button" style="--size: {size}px" aria-label="Записать голосом">
+		<svg viewBox="0 0 24 24" width={size * 0.4} height={size * 0.4} fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 			<rect x="9" y="2" width="6" height="12" rx="3" />
 			<path d="M5 10v2a7 7 0 0 0 14 0v-2" />
 			<line x1="12" y1="19" x2="12" y2="22" />
@@ -42,23 +42,21 @@
 		width: var(--size);
 		height: var(--size);
 		border-radius: 50%;
-		background: var(--accent);
+		background: radial-gradient(circle at 30% 20%, #f5a489 0%, var(--accent) 55%, var(--accent-pressed) 100%);
 		color: white;
 		display: grid;
 		place-items: center;
 		text-decoration: none;
 		-webkit-user-select: none;
 		user-select: none;
-		box-shadow:
-			0 10px 24px rgba(232, 122, 58, 0.4),
-			var(--shadow-neu-sm);
+		box-shadow: var(--shadow-fab);
 		transition:
 			transform 120ms ease,
 			box-shadow 120ms ease;
+		order: 3;
 	}
 	.mic:active {
 		transform: scale(0.94);
-		background: var(--accent-pressed);
 	}
 	.mic.active {
 		background: var(--accent-pressed);

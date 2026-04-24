@@ -4,8 +4,7 @@
 	import { page } from '$app/stores';
 	import MicButton from '$lib/components/MicButton.svelte';
 	import { parseTransaction, toKzt } from '$lib/ai/mock-parser.js';
-	import { setPending } from '$lib/stores/transactions.svelte.js';
-	import { walletStore } from '$lib/stores/transactions.svelte.js';
+	import { setPending, walletStore } from '$lib/stores/transactions.svelte.js';
 
 	let mode = $derived($page.url.searchParams.get('mode') ?? 'voice');
 
@@ -17,7 +16,6 @@
 	/** @type {any} */
 	let recognition = null;
 
-	// Examples a user can tap to simulate voice without a working mic
 	const examples = [
 		'Обед в Додо пицце 4500 тенге',
 		'Жібердім маме 10к',
@@ -27,6 +25,25 @@
 		'Садақа мешітке 20 000',
 		'Netflix 15 долларов'
 	];
+
+	/** @param {string} code */
+	function friendlyError(code) {
+		switch (code) {
+			case 'network':
+				return 'Speech service недоступен (в Brave Shields часто блокирует Google). Попробуй Chrome/Safari или текстовый режим.';
+			case 'not-allowed':
+			case 'service-not-allowed':
+				return 'Нет доступа к микрофону. Разреши в настройках браузера.';
+			case 'no-speech':
+				return 'Не услышал речь — попробуй ещё раз.';
+			case 'audio-capture':
+				return 'Микрофон не найден.';
+			case 'aborted':
+				return '';
+			default:
+				return `Ошибка микрофона: ${code}`;
+		}
+	}
 
 	function ensureRecognition() {
 		if (typeof window === 'undefined') return null;
@@ -53,7 +70,7 @@
 			interim = interimText;
 		};
 		recognition.onerror = (/** @type {any} */ ev) => {
-			error = `Ошибка микрофона: ${ev.error}`;
+			error = friendlyError(ev.error);
 			listening = false;
 		};
 		recognition.onend = () => {
@@ -68,7 +85,7 @@
 		error = null;
 		const rec = ensureRecognition();
 		if (!rec) {
-			error = 'Web Speech API не поддерживается в этом браузере. Попробуй Chrome или Safari iOS 14.5+.';
+			error = 'Web Speech API не поддерживается. Попробуй Chrome или Safari iOS 14.5+.';
 			return;
 		}
 		if (listening) {
@@ -88,7 +105,7 @@
 	/** @param {string} text */
 	async function submit(text) {
 		parsing = true;
-		await new Promise((r) => setTimeout(r, 350)); // emulate network latency
+		await new Promise((r) => setTimeout(r, 300));
 		const result = parseTransaction(text);
 		const defaultWallet =
 			walletStore.items.find((w) => w.bankCode === result.walletHint) ?? walletStore.items[0];
@@ -130,9 +147,13 @@
 
 <div class="record">
 	<header>
-		<button class="back" type="button" onclick={back} aria-label="Назад">←</button>
+		<button class="icon-circle back" type="button" onclick={back} aria-label="Назад">
+			<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<polyline points="15 18 9 12 15 6" />
+			</svg>
+		</button>
 		<div class="title">{mode === 'text' ? 'Текстом' : 'Голосом'}</div>
-		<div style="width: 36px"></div>
+		<div style="width: 40px"></div>
 	</header>
 
 	{#if mode === 'voice'}
@@ -184,18 +205,20 @@
 
 	<div class="examples">
 		<div class="subtle ex-head">Или попробуй пример:</div>
-		{#each examples as ex}
-			<button
-				class="ex"
-				type="button"
-				onclick={() => {
-					transcript = ex;
-					if (mode === 'voice') void submit(ex);
-				}}
-			>
-				{ex}
-			</button>
-		{/each}
+		<div class="ex-row">
+			{#each examples as ex}
+				<button
+					class="ex"
+					type="button"
+					onclick={() => {
+						transcript = ex;
+						if (mode === 'voice') void submit(ex);
+					}}
+				>
+					{ex}
+				</button>
+			{/each}
+		</div>
 	</div>
 </div>
 
@@ -204,7 +227,7 @@
 		display: flex;
 		flex-direction: column;
 		min-height: 100vh;
-		padding: 16px;
+		padding: 14px 20px 32px;
 	}
 	header {
 		display: flex;
@@ -212,28 +235,19 @@
 		align-items: center;
 		margin-bottom: 20px;
 	}
-	.back {
-		width: 36px;
-		height: 36px;
-		border-radius: 50%;
-		background: var(--bg-elev);
-		box-shadow: var(--shadow-neu-sm);
-		font-size: 18px;
-		color: var(--fg-muted);
-	}
 	.title {
 		font-weight: 600;
-		font-size: 16px;
+		font-size: 15px;
 	}
 
 	.stage {
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		padding: 40px 12px;
+		padding: 30px 12px 20px;
 	}
 	.status {
-		margin-bottom: 36px;
+		margin-bottom: 32px;
 		font-size: 14px;
 		min-height: 20px;
 	}
@@ -246,6 +260,7 @@
 		font-size: 18px;
 		line-height: 1.5;
 		max-width: 340px;
+		font-weight: 500;
 	}
 	.transcript.dim {
 		color: var(--fg-subtle);
@@ -260,6 +275,7 @@
 		margin-top: 20px;
 		text-align: center;
 		max-width: 320px;
+		line-height: 1.45;
 	}
 
 	.text-form {
@@ -274,50 +290,50 @@
 	textarea {
 		background: var(--bg-elev);
 		border-radius: var(--radius-md);
-		box-shadow: var(--shadow-neu-inset);
-		border: none;
+		border: 1px solid var(--border);
 		padding: 16px;
 		font-size: 17px;
 		resize: none;
-		color: var(--fg);
 		outline: none;
 	}
 	textarea:focus {
-		box-shadow: var(--shadow-neu-inset), 0 0 0 2px rgba(232, 122, 58, 0.25);
+		border-color: var(--accent-soft);
+		box-shadow: 0 0 0 3px rgba(237, 111, 75, 0.12);
 	}
 	.primary {
-		background: var(--accent);
-		color: white;
+		background: var(--fg);
+		color: var(--bg-elev);
 		padding: 14px 18px;
-		border-radius: var(--radius-md);
-		font-size: 16px;
+		border-radius: var(--radius-pill);
+		font-size: 15px;
 		font-weight: 600;
-		box-shadow: var(--shadow-neu-sm);
 	}
 	.primary:disabled {
-		opacity: 0.4;
+		opacity: 0.3;
 	}
 
 	.examples {
 		margin-top: auto;
-		padding: 20px 4px 40px;
+		padding: 20px 0 0;
+	}
+	.ex-head {
+		margin-bottom: 10px;
+		padding: 0 4px;
+	}
+	.ex-row {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 8px;
 	}
-	.ex-head {
-		width: 100%;
-		margin-bottom: 4px;
-	}
 	.ex {
 		background: var(--bg-elev);
-		padding: 8px 12px;
-		border-radius: 100px;
+		padding: 8px 14px;
+		border-radius: var(--radius-pill);
 		font-size: 13px;
-		color: var(--fg-muted);
-		box-shadow: var(--shadow-neu-sm);
+		color: var(--fg);
+		border: 1px solid var(--border);
 	}
 	.ex:active {
-		box-shadow: var(--shadow-neu-inset);
+		background: var(--bg-soft);
 	}
 </style>

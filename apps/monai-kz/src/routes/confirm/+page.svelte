@@ -8,9 +8,8 @@
 		addTransaction,
 		clearPending
 	} from '$lib/stores/transactions.svelte.js';
-	import { CATEGORIES, formatMoney } from '$lib/types.js';
+	import { CATEGORIES, fmtUsd } from '$lib/types.js';
 
-	// Redirect home if user lands here directly
 	onMount(() => {
 		if (!txStore.pending) goto(base || '/');
 	});
@@ -19,16 +18,13 @@
 	const lowConfidence = $derived((pending?.aiConfidence ?? 1) < 0.6);
 
 	const availableCategories = $derived(
-		Object.entries(CATEGORIES)
-			.filter(([, c]) => c)
-			.map(([slug, c]) => ({ slug, ...c }))
+		Object.entries(CATEGORIES).map(([slug, c]) => ({ slug, ...c }))
 	);
 
 	let showCategoryPicker = $state(false);
 
 	function save() {
 		if (!pending) return;
-		// Commit — assign a real id and add via store
 		const confirmed = { ...pending, id: 't_' + Date.now() };
 		addTransaction(confirmed);
 		clearPending();
@@ -52,63 +48,41 @@
 		if (!pending) return;
 		pending.walletId = walletId;
 	}
-
-	function toggleKind() {
-		if (!pending) return;
-		pending.kind = pending.kind === 'expense' ? 'income' : 'expense';
-	}
 </script>
 
 {#if pending}
 	{@const cat = pending.category ? CATEGORIES[pending.category] : null}
-	{@const wallet = walletStore.items.find((w) => w.id === pending.walletId)}
 	<div class="confirm">
 		<header>
-			<button class="back" type="button" onclick={cancel} aria-label="Отмена">✕</button>
-			<div class="title">Подтверди</div>
-			<div style="width: 36px"></div>
+			<div style="width: 40px"></div>
+			<button class="icon-circle close" type="button" onclick={cancel} aria-label="Отмена">
+				<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+					<line x1="6" y1="6" x2="18" y2="18" />
+					<line x1="6" y1="18" x2="18" y2="6" />
+				</svg>
+			</button>
 		</header>
+
+		<section class="hero">
+			<div class="merchant">
+				{pending.merchant ?? pending.counterparty ?? cat?.ru ?? 'Трата'}
+			</div>
+			<div class="amount tabular">
+				<span class="cur">$</span><span class="num">{fmtUsd(pending.amountKztMinor)}</span>
+			</div>
+			<button
+				class="cat-pill"
+				type="button"
+				onclick={() => (showCategoryPicker = !showCategoryPicker)}
+			>
+				<span class="cat-icon">{cat?.icon ?? '•'}</span>
+				<span>{cat?.ru ?? 'Выбери категорию'}</span>
+			</button>
+		</section>
 
 		{#if pending.rawInput}
 			<div class="raw subtle">«{pending.rawInput}»</div>
 		{/if}
-
-		<div class="amount-card card">
-			<button class="kind-toggle" type="button" onclick={toggleKind} title="Расход / доход">
-				{pending.kind === 'expense' ? '−' : pending.kind === 'income' ? '+' : '↔'}
-			</button>
-			<input
-				class="amount-input tabular"
-				type="number"
-				inputmode="decimal"
-				bind:value={() => pending.amountMinor / 100,
-					(v) => {
-						pending.amountMinor = Math.round(Number(v) * 100);
-					}}
-			/>
-			<div class="currency">{pending.currency}</div>
-		</div>
-
-		<div class="chips">
-			<button class="chip" type="button" onclick={() => (showCategoryPicker = !showCategoryPicker)}>
-				<span class="chip-icon" style="color: {cat?.color ?? '#888'}">{cat?.icon ?? '•'}</span>
-				<span>{cat?.ru ?? 'Категория'}</span>
-			</button>
-
-			<div class="wallet-picker">
-				{#each walletStore.items as w (w.id)}
-					<button
-						class="wchip"
-						class:active={w.id === pending.walletId}
-						type="button"
-						onclick={() => pickWallet(w.id)}
-						style="--bank: {w.color}"
-					>
-						{w.name}
-					</button>
-				{/each}
-			</div>
-		</div>
 
 		{#if showCategoryPicker}
 			<div class="picker">
@@ -119,36 +93,35 @@
 						type="button"
 						onclick={() => pickCategory(c.slug)}
 					>
-						<span class="pi-icon" style="background: {c.color}20; color: {c.color}">{c.icon}</span>
-						<span>{c.ru}</span>
+						<span class="pi-icon">{c.icon}</span>
+						<span class="pi-label">{c.ru}</span>
 					</button>
 				{/each}
 			</div>
 		{/if}
 
+		<div class="wallets">
+			<div class="field-label subtle">Кошелёк</div>
+			<div class="wallet-row">
+				{#each walletStore.items as w (w.id)}
+					<button
+						class="wchip"
+						class:active={w.id === pending.walletId}
+						type="button"
+						onclick={() => pickWallet(w.id)}
+					>
+						<span class="wdot" style="background: {w.color}"></span>
+						{w.name}
+					</button>
+				{/each}
+			</div>
+		</div>
+
 		<div class="meta">
-			{#if pending.merchant}
-				<div class="meta-row">
-					<span class="subtle">Мерчант</span>
-					<span>{pending.merchant}</span>
-				</div>
-			{/if}
-			{#if pending.counterparty}
-				<div class="meta-row">
-					<span class="subtle">Кому</span>
-					<span>{pending.counterparty}</span>
-				</div>
-			{/if}
 			{#if pending.isInstallment}
 				<div class="meta-row">
 					<span class="subtle">Рассрочка</span>
 					<span>{pending.installmentMonths ?? 12} мес</span>
-				</div>
-			{/if}
-			{#if pending.currency !== 'KZT'}
-				<div class="meta-row">
-					<span class="subtle">≈ в KZT</span>
-					<span class="tabular">{formatMoney(pending.amountKztMinor)}</span>
 				</div>
 			{/if}
 			<div class="meta-row">
@@ -160,7 +133,7 @@
 		</div>
 
 		{#if lowConfidence}
-			<div class="warn">Низкая уверенность — проверь сумму и категорию перед сохранением.</div>
+			<div class="warn">Низкая уверенность — проверь категорию перед сохранением.</div>
 		{/if}
 
 		<label class="note">
@@ -169,7 +142,6 @@
 		</label>
 
 		<div class="actions">
-			<button class="secondary" type="button" onclick={cancel}>Отменить</button>
 			<button class="primary" type="button" onclick={save} disabled={pending.amountMinor <= 0}>
 				Сохранить
 			</button>
@@ -179,156 +151,140 @@
 
 <style>
 	.confirm {
-		padding: 16px 16px 40px;
+		padding: 14px 20px 40px;
+		min-height: 100vh;
 	}
 	header {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		margin-bottom: 16px;
+		margin-bottom: 12px;
 	}
-	.back {
-		width: 36px;
-		height: 36px;
-		border-radius: 50%;
+
+	.hero {
+		padding: 40px 0 28px;
+	}
+	.merchant {
+		font-size: 34px;
+		font-weight: 800;
+		letter-spacing: -0.03em;
+		line-height: 1.1;
+		margin-bottom: 4px;
+	}
+	.amount {
+		font-size: 42px;
+		font-weight: 800;
+		letter-spacing: -0.03em;
+		line-height: 1.1;
+		margin-bottom: 20px;
+	}
+	.amount .cur {
+		color: var(--fg-subtle);
+		font-weight: 500;
+		font-size: 34px;
+		margin-right: 2px;
+	}
+	.cat-pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 8px;
+		padding: 8px 14px;
 		background: var(--bg-elev);
-		box-shadow: var(--shadow-neu-sm);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-pill);
+		font-size: 14px;
+		font-weight: 500;
+		color: var(--fg);
+	}
+	.cat-icon {
 		font-size: 16px;
-		color: var(--fg-muted);
 	}
-	.title {
-		font-weight: 600;
-	}
+
 	.raw {
 		padding: 10px 14px;
 		margin-bottom: 16px;
-		background: transparent;
-		border-left: 3px solid var(--accent);
+		background: var(--bg-soft);
+		border-radius: var(--radius-sm);
 		font-style: italic;
 	}
 
-	.amount-card {
-		padding: 22px 20px;
-		display: flex;
-		align-items: center;
+	.picker {
+		max-height: 260px;
+		overflow-y: auto;
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
 		gap: 8px;
-		margin-bottom: 14px;
+		padding: 12px;
+		margin-bottom: 16px;
+		background: var(--bg-elev);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-md);
 	}
-	.kind-toggle {
-		width: 42px;
-		height: 42px;
-		border-radius: 50%;
-		background: rgba(232, 122, 58, 0.12);
-		color: var(--accent);
+	.pick-item {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 4px;
+		padding: 10px 6px;
+		border-radius: 12px;
+		font-size: 11px;
+		text-align: center;
+	}
+	.pick-item.active {
+		background: var(--bg-soft);
+	}
+	.pi-icon {
 		font-size: 22px;
-		font-weight: 700;
 	}
-	.amount-input {
-		flex: 1;
-		background: transparent;
-		border: none;
-		font-size: 36px;
-		font-weight: 700;
-		outline: none;
-		min-width: 0;
-		color: var(--fg);
-		letter-spacing: -0.02em;
-	}
-	.amount-input::-webkit-outer-spin-button,
-	.amount-input::-webkit-inner-spin-button {
-		-webkit-appearance: none;
-	}
-	.currency {
-		font-size: 18px;
+	.pi-label {
 		color: var(--fg-muted);
-		font-weight: 600;
 	}
 
-	.chips {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px;
-		margin-bottom: 14px;
+	.wallets {
+		margin-bottom: 16px;
 	}
-	.chip {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		padding: 10px 14px;
-		background: var(--bg-elev);
-		box-shadow: var(--shadow-neu-sm);
-		border-radius: 100px;
-		font-size: 14px;
-		font-weight: 500;
+	.field-label {
+		padding: 0 4px 8px;
 	}
-	.chip-icon {
-		font-size: 16px;
-	}
-	.wallet-picker {
+	.wallet-row {
 		display: flex;
 		gap: 6px;
-		flex: 1;
 		overflow-x: auto;
 		scrollbar-width: none;
+		padding-bottom: 2px;
 	}
-	.wallet-picker::-webkit-scrollbar {
+	.wallet-row::-webkit-scrollbar {
 		display: none;
 	}
 	.wchip {
 		flex: 0 0 auto;
-		padding: 10px 12px;
-		background: var(--bg-elev);
-		border-radius: 100px;
-		font-size: 13px;
-		color: var(--fg-muted);
-		border: 1px solid transparent;
-		box-shadow: var(--shadow-neu-sm);
-	}
-	.wchip.active {
-		border-color: var(--bank);
-		color: var(--fg);
-	}
-
-	.picker {
-		max-height: 220px;
-		overflow-y: auto;
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: 8px;
-		padding: 12px;
-		margin-bottom: 14px;
-		background: var(--bg-elev);
-		border-radius: var(--radius-md);
-		box-shadow: var(--shadow-neu-inset);
-	}
-	.pick-item {
 		display: flex;
 		align-items: center;
-		gap: 8px;
-		padding: 8px 10px;
-		border-radius: 10px;
+		gap: 6px;
+		padding: 8px 12px;
+		background: var(--bg-elev);
+		border: 1px solid var(--border);
+		border-radius: var(--radius-pill);
 		font-size: 13px;
-		text-align: left;
+		color: var(--fg-muted);
 	}
-	.pick-item.active {
-		background: rgba(232, 122, 58, 0.12);
+	.wchip.active {
+		border-color: var(--fg);
+		color: var(--fg);
+		background: var(--bg-soft);
 	}
-	.pi-icon {
-		width: 28px;
-		height: 28px;
+	.wdot {
+		width: 8px;
+		height: 8px;
 		border-radius: 50%;
-		display: grid;
-		place-items: center;
-		font-size: 14px;
-		flex-shrink: 0;
 	}
 
 	.meta {
 		padding: 14px 16px;
 		margin-bottom: 14px;
 		background: var(--bg-elev);
+		border: 1px solid var(--border);
 		border-radius: var(--radius-md);
-		box-shadow: var(--shadow-neu-sm);
 	}
 	.meta-row {
 		display: flex;
@@ -342,7 +298,7 @@
 
 	.warn {
 		padding: 12px 14px;
-		background: rgba(196, 82, 58, 0.1);
+		background: rgba(221, 91, 71, 0.1);
 		color: var(--danger);
 		border-radius: var(--radius-sm);
 		font-size: 13px;
@@ -352,46 +308,39 @@
 	.note {
 		display: block;
 		padding: 0 4px;
-		margin-bottom: 20px;
+		margin-bottom: 24px;
 	}
 	.note span {
 		display: block;
 		margin-bottom: 6px;
-		padding: 0 4px;
 	}
 	.note input {
 		width: 100%;
 		padding: 12px 14px;
 		background: var(--bg-elev);
-		border: none;
+		border: 1px solid var(--border);
 		border-radius: var(--radius-sm);
-		box-shadow: var(--shadow-neu-inset);
 		font-size: 15px;
 		outline: none;
+	}
+	.note input:focus {
+		border-color: var(--accent-soft);
 	}
 
 	.actions {
 		display: flex;
 		gap: 10px;
 	}
-	.secondary,
 	.primary {
 		flex: 1;
 		padding: 16px;
-		border-radius: var(--radius-md);
+		background: var(--fg);
+		color: var(--bg-elev);
+		border-radius: var(--radius-pill);
 		font-size: 16px;
 		font-weight: 600;
-		box-shadow: var(--shadow-neu-sm);
-	}
-	.secondary {
-		background: var(--bg-elev);
-		color: var(--fg-muted);
-	}
-	.primary {
-		background: var(--accent);
-		color: white;
 	}
 	.primary:disabled {
-		opacity: 0.5;
+		opacity: 0.3;
 	}
 </style>
